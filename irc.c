@@ -12,13 +12,32 @@ char channel[256];
 
 char recvBuff[4096];
 char sendBuff[1024];
-char iBuff[64];
-char iPos = 0;
+char iBuff[255];
+unsigned char iPos = 0;
 
 char intBuff[80];
 char msgOutBuff[1024];
 
 static void myPutS(char *c);
+
+static void setColour(char c) 
+{
+    printf("%c%c", 16, c);
+}
+
+
+static void cleanStatus() 
+{
+
+    gotoxy(0, 22);
+    printf("                                                                ");
+}
+
+static void cleanIRow()
+{
+    gotoxy(0, 23);
+    printf("                                                                "); 
+}
 
 static char* skip(char *s, char c) 
 {
@@ -103,6 +122,7 @@ void connect()
 static void privmsg(char *to, char *what) 
 {
     if (to[0] == 0) {
+        setColour( '5' );
         myPutS("No target to send message!");
         return;
     }
@@ -111,19 +131,20 @@ static void privmsg(char *to, char *what)
 
     sprintf(sendBuff, "PRIVMSG %s : %s", to, what);
     send();
+
     sprintf(intBuff, "<%s> %s", nick, what);    
+    setColour( '3' );
     myPutS(intBuff);
 } 
 
 static void myPutS(char *c)
 {
-    char i;
-    gotoxy(0, 23);
-    for (i=0;i<strlen(iBuff) + 2;i++)
-        printf(" ");
+    cleanStatus();
+    cleanIRow();
 
-    gotoxy(0, 22);
-    printf("%s\n\n", c);
+    gotoxy(0, 20);
+    printf("%s\n\n\n\n", c);
+
 }
 
 static void parseIn()
@@ -141,13 +162,18 @@ static void parseIn()
         switch (iBuff[1])
         {
         case 'j':
-            if (channel[0] == 0) {
-                sprintf(sendBuff, "JOIN %s", subStr);
-                send();
-                strcpy(channel, subStr);
-            } else {
-                myPutS("Please leave current channel before joining another");
-            }
+            sprintf(sendBuff, "JOIN %s", subStr);
+            send();
+            strcpy(channel, subStr);
+            sprintf(intBuff, "Current stream: %s", subStr);
+            setColour( '7' );
+            myPutS(intBuff);
+            break;
+        case 's':
+            strcpy(channel, subStr);
+            sprintf(intBuff, "Current stream: %s", subStr);
+            setColour( '7' );
+            myPutS(intBuff);
             break;
         case 'l':
             if (channel[0]) {
@@ -155,6 +181,8 @@ static void parseIn()
                 send();
                 channel[0] = 0;
 
+                setColour( '7' );
+                myPutS("Select stream or join group to talk");
                 return;
             }
         case 'm':
@@ -165,8 +193,10 @@ static void parseIn()
             if (subStr[cnt] == ' ') { 
                 privmsg(argBuff, &subStr[++ cnt]);
             }
-            else
+            else {
+                setColour( '5' );
                 myPutS("No message specified!");
+            }
         default:
             break;
         }
@@ -208,6 +238,7 @@ static void parseSrv(char *cmd)
     if (!strcmp("PONG", cmd)) return;
     if(!strcmp("PRIVMSG", cmd)) {
         sprintf(msgOutBuff, "%s <%s> %s", par, usr, txt);
+        setColour ( '2' );
         myPutS(msgOutBuff);
         return;
     }
@@ -222,38 +253,63 @@ static void parseSrv(char *cmd)
         strcpy(nick, txt);
     }
     sprintf(msgOutBuff, "%s!%s(%s): %s", usr, cmd, par, txt);
+    
+    setColour( '5' );
     myPutS(msgOutBuff);
 }    
+
+
+static void bar()
+{
+    gotoxy(0, 22);
+    setColour( '7' );
+    printf("Current stream: %s", channel);
+    __asm
+        ld hl, #0x5AC0
+        ld a, #0x0F
+        ld (hl), a
+        ld de, #0x5AC1
+        ld bc, #31
+        ldir
+    __endasm;
+}
 
 static void iRoutine()
 {
     char c;
-    char i;
-        
+    unsigned char i = 0;
+    setColour( '7' );
+
     gotoxy(0, 23);
     iBuff[iPos] = 0;
+    
+    if (iPos > 62) i = iPos - 62;
+
     c = getk();
-    printf(">%s_", iBuff, c);
+    printf(">%s_", &iBuff[i], c);
     
     if (c >= 32) iBuff[iPos ++] = c;
     if (c == 12) {
-        gotoxy(0, 23);
-        for (i=0;i<strlen(iBuff) + 2;i++) printf(" ");
+        if (i < 2)
+            cleanIRow();
+
         iPos --;
     }
     if (c == 13) { 
-        gotoxy(0, 23);
-        for (i=0;i<strlen(iBuff) + 2;i++) printf(" ");
+        cleanIRow();
         iPos = 0;
         parseIn();
+        bar();
 
     }
     if (iPos < 0) iPos = 0;
-    if (iPos > 63) iPos = 63;
+    if (iPos > 254) iPos = 254;
 }
+
 
 void main() 
 {
+    char i;
     zx_border(INK_BLACK);
     zx_colour(PAPER_BLACK | INK_WHITE);
     clg();
@@ -262,25 +318,32 @@ void main()
         ld (23695), a
         ld (23693), a
     __endasm;
-    
-    myPutS("Simple IRC Client for ZX-UNO v. 0.1");
-    myPutS("(c) 2019 Nihirash");
-    myPutS("Some parts based on Suckless Irc Client");
-    myPutS("");
 
+    setColour( '5' );
+    
+    myPutS("Simple IRC Client for ZX-UNO v. 0.2");
+    setColour( '3' );
+    
+    myPutS("(c) 2019 Nihirash");
+    myPutS("Some parts based on Simple Irc Client(suckless software)");
+    myPutS("This software is Public Domain.");
+    myPutS("Use it for the good of all beings");
+    myPutS("");
+    setColour ( '7' );
     readHostData();
     readUserData();
     initWifi();
     openTcp(host, port);
     myPutS("Connected!");
     recv();
-    myPutS(recvBuff);
+    parseSrv(recvBuff);
     connect();
-    
+    bar();
     for(;;) {
         if (isAvail()) {
             recv();
             parseSrv(recvBuff);
+            bar();
         }
         iRoutine();
     }

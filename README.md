@@ -21,7 +21,8 @@ For sending IRC commands used symbol '!' but not '/'. Cause it simpler to type f
 There some shortcuts:
 
  * `!j #channel` - will joins specified channel
- * `!l` - will leave channel
+ * `!l` - will leave current channel(you must switch on channel what you want leave)
+ * `!s #channel` or `!s user` - will sets current talk stream to channel or user.
  * `!m user and there goes your message` sends to `user` private message
 
  If you need send some other command just write it after bang, example: 
