@@ -27,6 +27,18 @@ void closed_callback()
   for(;;);
 }
 
+void checkNoWiFiConfig()
+{
+    for (;&ssid[0] == 0;) {
+        printf("Wifi SSID:");
+        cgets(&ssid);
+        if (&ssid[0]) {
+            printf("Wifi password(may keep empty): ");
+            cgets(&wpass);
+        }
+    }
+}
+
 
 char openTcp(char *host, char *port) __stdc
 {
@@ -333,6 +345,22 @@ fsync:
 initWifi:
     call uartBegin
     call loadWiFiConfig
+    
+    ld hl, cmd_plus
+    call uartWriteStringZ
+    halt
+    halt
+    halt
+    ld hl, cmd_rst
+    call uartWriteStringZ
+rstLp:
+    call uartReadBlocking
+    call pushRing
+
+    ld hl, response_rdy
+    call searchRing
+    cp 1
+    jp nz, rstLp
 
     ld hl, cmd_at   ; Disable ECHO. BTW Basic UART test
     call okErrCmd
@@ -365,7 +393,7 @@ initWifi:
     call uartWriteStringZ
     ld hl, cmd_cwjap2
     call uartWriteStringZ
-    ld hl, _pass
+    ld hl, _wpass
     call uartWriteStringZ
     ld hl, cmd_cwjap3
     call okErrCmd
@@ -452,13 +480,12 @@ loadWiFiConfig:
     call fread
     pop af
     push af
-    ld hl, _pass
+    ld hl, _wpass
     ld bc, 80
     call fread
     pop af
-
     call fclose
-    ret
+    jp _checkNoWiFiConfig
 
     ; Pushes A to ring buffer
 pushRing:
@@ -518,7 +545,8 @@ ringCmpLp:
     ret
     
 ring_buffer: defs 32
-
+cmd_plus:    defb "+++",0
+cmd_rst:     defb "AT+RST\r\n",0 
 cmd_at:      defb "ATE0\r\n", 0                  ; Disable echo - less to parse
 cmd_mode:    defb "AT+CWMODE_DEF=1\r\n",0	        ; Client mode
 cmd_cmux:    defb "AT+CIPMUX=0\r\n",0              ; Single connection mode
@@ -529,19 +557,20 @@ cmd_cipmode:    defb "AT+CIPMODE=1\r\n", 0             ; DIRECT MODE
 cmd_send_begin: defb "AT+CIPSEND\r\n", 0
 
 cmd_cwjap1:  defb  "AT+CWJAP_CUR=\"",0        ;Connect to AP. Send this -> _ssid
-cmd_cwjap2:  defb "\",\"",0                     ; -> This -> _password
+cmd_cwjap2:  defb "\",\"",0                     ; -> This -> _wpass
 cmd_cwjap3:  defb '"', 13, 10, 0                 ; -> And this
 
 cmd_open1:   defb "AT+CIPSTART=\"TCP\",\"", 0
 cmd_open2:   defb "\",", 0
 cmd_open3:   defb "\r\n", 0
 
+response_rdy:    defb "ready", 0
 response_ok:     defb "OK",13, 10, 0      ; Sucessful operation
 response_err:    defb "ERROR",13,10,0      ; Failed operation
 response_fail:   defb "FAIL",13,10,0       ; Failed connection to WiFi. For us same as ERROR
 
 _ssid:        defs 80
-_pass:        defs 80
+_wpass:        defs 80
 
 send_prompt: defb ">",0
 
