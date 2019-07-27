@@ -321,7 +321,7 @@ void main()
 
     setColour( '5' );
     
-    myPutS("Simple IRC Client for ZX-UNO v. 0.3");
+    myPutS("Simple IRC Client for ZX-UNO v. 0.3(Spectrum Next Port)");
     setColour( '3' );
     
     myPutS("(c) 2019 Nihirash");
